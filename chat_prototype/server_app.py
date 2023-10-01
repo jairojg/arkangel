@@ -4,11 +4,36 @@ import time
 import pickle
 from PIL import Image
 from deepface import DeepFace
+import argparse
 import pandas as pd
 import time
 import sqlite3
 import math
+from os import remove
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-p","--port", type=int, help="TCP/IP port",
+                    required=True)
+parser.add_argument("-i","--ip_direction", type=str, help="ip direction",
+                    required=True)
+parser.add_argument("-d","--db_path", type=str, help='sqlite db to compare',
+                    required=True)
+parser.add_argument("-t","--temporal_path", type=str, help='folder to store the temporal \'downloaded\' images',
+                    required=True)
+
+args = parser.parse_args()
+cli_arguments = vars(args)
+
+
+# Data parameters
+DB_PATH = cli_arguments['db_path']
+
+# Ordering parameters
+TMP_PATH = cli_arguments['temporal_path']
+
+# Networking parameters
+PORT = cli_arguments['port']
+IP = cli_arguments['ip_direction']
 
 def process_image(target_img_path,db_path) -> str:
 
@@ -19,7 +44,7 @@ def process_image(target_img_path,db_path) -> str:
 
 
     try:
-        target_img = DeepFace.extract_faces(img_path = target_img_path)[0]["face"]
+        #target_img = DeepFace.extract_faces(img_path = target_img_path)[0]["face"]
         target_embedding = DeepFace.represent(img_path = target_img_path, model_name = "Facenet")[0]["embedding"]
 
         # perform sentyment analisis
@@ -93,7 +118,6 @@ def process_image(target_img_path,db_path) -> str:
         if not result_df.empty:
             # if df is not empty there was a matching result
             #print(result_df["person_name"].head(1))
-            print(str(result_df['person_name']))
             identity = str(result_df['person_name'])
             identity = identity.replace('_',' ')
             match = str(result_df['img_name'])
@@ -109,7 +133,7 @@ def process_image(target_img_path,db_path) -> str:
          
         result = f'''\n
         =================RESULTS=================
-        \nReport for: {target_img_path}
+        \nReport:
             ├Identity:
             │    ├Human name:        {identity}
             │    └image path:        {match}
@@ -127,31 +151,21 @@ def process_image(target_img_path,db_path) -> str:
         return result
 
     except ValueError:
-        print("No face detected")
+        #print("No face detected")
         return "No face detected"
         
-
-# Data parameters
-DB_PATH = "./data/facesdb.db"
-
-# Networking parameters
-HEADERSIZE = 10
-IP = '127.0.0.1'
-PORT = 1240
-
-
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 #server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
 server_socket.bind((IP, PORT))
 server_socket.listen(5)
 
 
-print(f"Beggining app at {datetime.fromtimestamp(time.time())}")
+print(f"{datetime.fromtimestamp(time.time())}: App on line")
 
 while True:
     # now our endpoint knows about the OTHER endpoint.
     client_socket, address = server_socket.accept()
-    print(f"Connection from {address} has been established.")
+    print(f"{datetime.fromtimestamp(time.time())}: Connection from {address} has been established.")
     
     
     in_msg = b""
@@ -160,15 +174,17 @@ while True:
         if not packet: break
         in_msg += packet
 
-    print("saving image")
+    print(f"{datetime.fromtimestamp(time.time())}: saving image from {address}.")
     timestamp = time.time()
     img = pickle.loads(in_msg)
 
-    tmp_img_path = f"./chat_prototype/tmp/tmp_{timestamp}.jpg"
+    tmp_img_path = f"{TMP_PATH}/img_{timestamp}.jpg"
     img.save(tmp_img_path)
-    
     out_message = process_image(tmp_img_path,DB_PATH)    
-    
+    remove(tmp_img_path)
+    print(out_message)
     #
     client_socket.send(bytes(out_message,"utf-8"))
-
+    
+    print(f"{datetime.fromtimestamp(time.time())}: request from {address} has been solved.")
+    client_socket.close()

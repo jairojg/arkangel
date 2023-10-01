@@ -1,15 +1,26 @@
 import socket
 import pickle
-import time
+import argparse
 from PIL import Image
 
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-p","--port", type=int, help="TCP/IP port",
+                    required=True)
+parser.add_argument("-i","--ip_direction", type=str, help="ip direction",
+                    required=True)
+parser.add_argument("-f","--img_path", type=str, help='image to analyze',
+                    required=True)
+
+args = parser.parse_args()
+cli_arguments = vars(args)
+
 # Data
-IMG_PATH = "./data/test_img/ai.jpg"
+IMG_PATH = cli_arguments['img_path']
 
 # Networking parameters
-HEADERSIZE = 10
-PORT = 1240
-IP = '127.0.0.1'
+PORT = cli_arguments['port']
+IP = cli_arguments['ip_direction']
 
 # run sockets
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -19,16 +30,5 @@ client_socket.connect((IP, PORT))
 image = Image.open(IMG_PATH)
 msg = pickle.dumps(image)
 client_socket.send(msg)
-
-
-"""
-in_msg = b""
-while True:
-    packet = client_socket.recv(4096)
-    if not packet: break
-    in_msg += packet
-
-
-print(in_msg.decode("utf-8"))
-print("-----------")
-"""
+print("image sent")
+client_socket.close()
