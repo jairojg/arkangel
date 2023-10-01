@@ -1,10 +1,11 @@
 import socket
-import select
 from datetime import datetime
 import time
 import pickle
 from PIL import Image
 from deepface import DeepFace
+import threading  # Import the threading module
+
 import argparse
 import pandas as pd
 import time
@@ -21,6 +22,7 @@ parser.add_argument("-d","--db_path", type=str, help='sqlite db to compare',
                     required=True)
 parser.add_argument("-t","--temporal_path", type=str, help='folder to store the temporal \'downloaded\' images',
                     required=True)
+
 args = parser.parse_args()
 cli_arguments = vars(args)
 
@@ -34,8 +36,6 @@ TMP_PATH = cli_arguments['temporal_path']
 # Networking parameters
 PORT = cli_arguments['port']
 IP = cli_arguments['ip_direction']
-
-## methods
 
 def process_image(target_img_path,db_path) -> str:
 
@@ -156,81 +156,51 @@ def process_image(target_img_path,db_path) -> str:
         #print("No face detected")
         return "No face detected"
 
-def receive_message(client_socket):
-
-    """
-        receive message from a socket
-    """
+def handle_client(client_socket):
     try:
         in_msg = b""
         while True:
             packet = client_socket.recv(4096)
-            if not packet: break
+            if not packet:
+                break
             in_msg += packet
 
-        return in_msg
-        #print(f"{datetime.fromtimestamp(time.time())}: saving image from {address}.")
-        #timestamp = time.time()
-        #img = pickle.loads(in_msg)
-        
+        client_socket.send("image received".encode('utf-8'))
+        print(f"{datetime.fromtimestamp(time.time())}: saving image from {address}.")
+        timestamp = time.time()
+        img = pickle.loads(in_msg)
 
-    except:
-        return False
-        #pass
+        # process the image
+        tmp_img_path = f"{TMP_PATH}/img_{timestamp}.jpg"
+        img.save(tmp_img_path)
+        out_message = process_image(tmp_img_path, DB_PATH)
+        remove(tmp_img_path)
+        print(out_message)
+        #
+        client_socket.sendall(bytes(out_message, "utf-8"))
 
-## main logic
+        print(f"{datetime.fromtimestamp(time.time())}: request from {address} has been solved.")
+    except Exception as e:
+        print(f"Error processing client request: {e}")
+    finally:
+        client_socket.close()
 
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
-server_socket.bind((IP, PORT))
-server_socket.listen(5)
+try: 
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
+    server_socket.bind((IP, PORT))
+    server_socket.listen(5)
 
-sockets_list = [server_socket]
-print(f"{datetime.fromtimestamp(time.time())}: App on line, listening at {IP}:{PORT}")
 
-while True:
-    # now our endpoint knows about the OTHER endpoint.
-    read_sockets, _, exception_sockets = select.select(sockets_list, [], sockets_list)
-    
-    # walk over notified sockets
-    for notified_socket in read_sockets:
-    
-        # If notified socket is a server socket - new connection, accept it
-        if notified_socket == server_socket:
-            
-            client_socket, client_address = server_socket.accept()
-            user = receive_message(client_socket)
+    print(f"{datetime.fromtimestamp(time.time())}: App on line at {IP}:{PORT}")
 
-            if user is False:
-                continue
-                
-            sockets_list.append(client_socket)
+    while True:
+        client_socket, address = server_socket.accept()
+        print(f"{datetime.fromtimestamp(time.time())}: Connection from {address} has been established.")
 
-        ## receive message
-        else:
-
-            message = receive_message(notified_socket)
-
-            if message is False:
-                print(f'{datetime.fromtimestamp(time.time())}: connection closed from {client_address}')
-            
-
-                sockets_list.remove(notified_socket)
-                continue
-            
-            else:
-
-                timestamp = time.time()
-                img = pickle.loads(message)
-                tmp_img_path = f"{TMP_PATH}/img_{timestamp}.jpg"
-                img.save(tmp_img_path)
-    
-                result = process_image(tmp_img_path,DB_PATH) 
-                remove(tmp_img_path)
-                notified_socket.send(bytes(result,'utf-8'))
-
-    for notified_socket in exception_sockets:
-
-        # remove from list for socket.socket()
-        sockets_list.remove(notified_socket)
-                
+        # Create a new thread to handle the client connection
+        client_handler = threading.Thread(target=handle_client, args=(client_socket,))
+        client_handler.start()
+except KeyboardInterrupt:
+    server_socket.close()
+    print("closing...")
