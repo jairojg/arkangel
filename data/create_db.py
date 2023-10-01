@@ -1,19 +1,35 @@
 import sqlite3
-from deepface.commons import functions
+#from deepface.commons import functions
 from deepface import DeepFace
 import pandas as pd
 from tqdm import tqdm
+import argparse
 import os
 
+parser = argparse.ArgumentParser()
+parser.add_argument('-d','--root_directory', type = str, 
+                    help = 'Images root directory',required=True)
+parser.add_argument('-o','--output_path', type = str,
+                     help = 'path to save the db',required=True)
+args = parser.parse_args()
+cli_arguments = vars(args)
+
+
 # defining main parameters
-root = "./data/test_db/"
-db_path = './data/facialdb.db'
+
+root = cli_arguments['root_directory']
+db_path = cli_arguments['output_path']
+
+#root = "./data/test_db/"
+#db_path = './data/facialdb.db'
 
 # extracting embeddings and formatting the data
 instances = []
 names = os.listdir(root)
+#names = names[0:50]
 
 print(f"db_creator: Trying to faces from {root}")
+log = ""
 
 for name in tqdm(names):
 
@@ -34,7 +50,7 @@ for name in tqdm(names):
             instances.append(instance)
 
         except:
-            print("Not face found on {}".format(filename))
+            log += "\n\t├No face found on {}".format(filename)
             
 df = pd.DataFrame(instances, columns = ["person_name",'img_name', 'embedding'])
 
@@ -68,5 +84,14 @@ for index, instance in tqdm(df.iterrows(), total=df.shape[0]):
 
 conn.commit()
 conn.close()
+
+if log == '':
+    log = '\n\t├No errors found'
+
+
+print(f'''\ndb_creator: 
+    \t└Log:{log}
+    \t└End''')
+
 
 print(f"db_creator: saving finalized to {db_path}")
