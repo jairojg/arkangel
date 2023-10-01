@@ -27,11 +27,11 @@ for i, value in enumerate(target_embedding):
 select_statement = f'''
     select * 
     from (
-        select img_name, sum(subtract_dims) as distance_squared
+        select img_name, sum(subtract_dims) as distance_squared, person_name
         from (
-            select img_name, (source - target) * (source - target) as subtract_dims
+            select img_name, (source - target) * (source - target) as subtract_dims, person_name
             from (
-                select meta.img_name, emb.value as source, target.value as target
+                select meta.img_name, emb.value as source, target.value as target, meta.person_name
                 from face_meta meta left join face_embeddings emb
                 on meta.id = emb.face_id
                 left join (
@@ -50,19 +50,24 @@ select_statement = f'''
 tic = time.time()
 results = cursor.execute(select_statement)
 
+
+print(results)
+
 instances = []
 for result in results:
     img_name = result[0]
     distance_squared = result[1]
-    
+    person_name = result[2]
+
     instance = []
     instance.append(img_name)
     instance.append(math.sqrt(distance_squared))
+    instance.append(person_name)
     instances.append(instance)
 
 toc = time.time()
 print(toc-tic,"seconds")
 
-result_df = pd.DataFrame(instances, columns = ["img_name", "distance"])
+result_df = pd.DataFrame(instances, columns = ["img_name", "distance", "person_name"])
 
-print(result_df.head(1))
+print(result_df["person_name"].head(1))
