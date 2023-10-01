@@ -8,13 +8,20 @@ import math
 # target_img_path = 'data/test_img/ai.jpg' # face not found on db
 # target_img_path = 'data/test_img/Blank_image.jpg' # face not found on image
 # target_img_path = 'data/test_img/Ezra_miller.jpg' # face on image causes false positive 
-target_img_path = 'data/test_img/group.jpg' # group 
-#target_img_path = 'data/test_img/aaron_eckhart.jpg'
-
+#target_img_path = 'data/test_img/group.jpg' # group 
+target_img_path = 'data/test_img/aaron_eckhart.jpg' #success A
+target_img_path = 'data/test_img/Bono_0001.jpg' #success B
 
 try:
     target_img = DeepFace.extract_faces(img_path = target_img_path)[0]["face"]
     target_embedding = DeepFace.represent(img_path = target_img_path, model_name = "Facenet")[0]["embedding"]
+
+    # perform sentyment analisis
+    analysis = DeepFace.analyze(img_path = target_img_path,
+        #actions = ['age', 'gender', 'race', 'emotion']
+        actions = ['emotion']
+    )
+    analysis = analysis[0]  # keep just the first register (it just show only have one)
 
 
     # database connection and data loading
@@ -75,16 +82,40 @@ try:
 
     result_df = pd.DataFrame(instances, columns = ["img_name", "distance", "person_name"])
     
+
     if not result_df.empty:
         # if df is not empty there was a matching result
-        print(result_df["person_name"].head(1))
+        #print(result_df["person_name"].head(1))
+        print(str(result_df['person_name']))
+        identity = str(result_df['person_name'])
+        identity = identity.replace('_',' ')
+        match = str(result_df['img_name'])
 
     else:
         # there was not result
-        print("person was not found on employees database")
-    
-    ## sentiment analysis
+        #print("person was not found on employees database")
+        identity = '<Unknown>'
+        match = 'N/A'
 
+
+    ## sentiment analysis
+    print(
+    f'''\n
+    =================RESULTS=================
+    \nreport for: {target_img_path}
+        ˫Identity:
+            ˫Human name:        {identity}
+            ˪image path:        {img_name}
+        ˪Emotions:
+            ˪Dominant emotion:  {analysis['dominant_emotion']}
+                ˫Angry:         {analysis['emotion']['angry']:2f}%
+                ˫Disgust:       {analysis['emotion']['disgust']:2f}%
+                ˫Fear:          {analysis['emotion']['fear']:2f}%
+                ˫Happy:         {analysis['emotion']['happy']:2f}%
+                ˫Sad:           {analysis['emotion']['sad']:2f}%
+                ˫Surprise:      {analysis['emotion']['surprise']:2f}%
+                ˪Neutral:       {analysis['emotion']['neutral']:2f}% 
+        ''')
 
 except ValueError:
     print("No face detected")
