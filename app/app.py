@@ -108,13 +108,13 @@ try:
             ˪image path:        {img_name}
         ˪Emotions:
             ˪Dominant emotion:  {analysis['dominant_emotion']}
-                ˫Angry:         {analysis['emotion']['angry']:2f}%
-                ˫Disgust:       {analysis['emotion']['disgust']:2f}%
-                ˫Fear:          {analysis['emotion']['fear']:2f}%
-                ˫Happy:         {analysis['emotion']['happy']:2f}%
-                ˫Sad:           {analysis['emotion']['sad']:2f}%
-                ˫Surprise:      {analysis['emotion']['surprise']:2f}%
-                ˪Neutral:       {analysis['emotion']['neutral']:2f}% 
+                ˫Angry:         {analysis['emotion']['angry']:0>7.3f}%
+                ˫Disgust:       {analysis['emotion']['disgust']:0>7.3f}%
+                ˫Fear:          {analysis['emotion']['fear']:0>7.3f}%
+                ˫Happy:         {analysis['emotion']['happy']:0>7.3f}%
+                ˫Sad:           {analysis['emotion']['sad']:0>7.3f}%
+                ˫Surprise:      {analysis['emotion']['surprise']:0>7.3f}%
+                ˪Neutral:       {analysis['emotion']['neutral']:0>7.3f}% 
         ''')
 
 except ValueError:
